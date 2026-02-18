@@ -1,26 +1,19 @@
-BootStrap: docker
-From: ubuntu:16.04
+Bootstrap: docker
+From: rocker/r-ver:3.4.1
 
 %post
-    # 1. System Essentials
-    apt-get update && apt-get install -y --no-install-recommends \
-        wget curl git build-essential gcc g++ make zlib1g-dev \
-        libncurses5-dev libbz2-dev liblzma-dev libcurl4-gnutls-dev \
-        libssl-dev libxml2-dev python2.7 python-pip python-dev \
-        software-properties-common apt-transport-https
+    export DEBIAN_FRONTEND=noninteractive
+    
+    # 1. Install System Dependencies
+    apt-get update && apt-get install -y \
+        build-essential wget curl git zlib1g-dev libncurses5-dev \
+        libbz2-dev liblzma-dev libcurl4-gnutls-dev libssl-dev \
+        libxml2-dev python-dev python-pip
 
-    # 2. Install R 3.4.1
-    # We use the CRAN archive for Ubuntu 16.04
-    gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
-    gpg -a --export E298A3A825C0D65DFD57CBB651716619E084DAB9 | apt-key add -
-    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu xenial/'
-    apt-get update
-    apt-get install -y r-base=3.4.1-1xenial0 r-base-dev=3.4.1-1xenial0
-
-    # 3. Install Bioinformatics Tools (Pre-compiled binaries where possible)
+    # 2. Install Bioinfo Tools (Direct Binaries to avoid compilation errors)
     # STAR 2.5.3a
     wget https://github.com/alexdobin/STAR/archive/2.5.3a.tar.gz
-    tar -xzf 2.5.3a.tar.gz && cd STAR-2.5.3a/source && make STAR && cp STAR /usr/local/bin/ && cd ../..
+    tar -xzf 2.5.3a.tar.gz && cd STAR-2.5.3a/source && make STAR && mv STAR /usr/local/bin/ && cd ../..
 
     # Samtools 1.1
     wget https://github.com/samtools/samtools/releases/download/1.1/samtools-1.1.tar.bz2
@@ -28,20 +21,24 @@ From: ubuntu:16.04
 
     # Bedtools 2.25.0
     wget https://github.com/arq5x/bedtools2/releases/download/v2.25.0/bedtools-2.25.0.tar.gz
-    tar -xzf bedtools-2.25.0.tar.gz && cd bedtools2 && make && cp bin/* /usr/local/bin/ && cd ..
+    tar -xzf bedtools-2.25.0.tar.gz && cd bedtools2 && make && make install && cd ..
 
     # StringTie 1.3.3
     wget http://ccb.jhu.edu/software/stringtie/dl/stringtie-1.3.3.Linux_x86_64.tar.gz
-    tar -xzf stringtie-1.3.3.Linux_x86_64.tar.gz && cp stringtie-1.3.3.Linux_x86_64/stringtie /usr/local/bin/
+    tar -xzf stringtie-1.3.3.Linux_x86_64.tar.gz && mv stringtie-1.3.3.Linux_x86_64/stringtie /usr/local/bin/
 
-    # 4. Install SQuIRE itself
-    pip install squire
+    # 3. Install R Packages using a MRAN snapshot (Fixed in time to 2017)
+    # This prevents modern versions of ggplot2 etc. from breaking R 3.4.1
+    R -e 'options(repos = c(CRAN = "https://cran.microsoft.com/snapshot/2017-09-01/")); \
+        install.packages(c("pheatmap", "RColorBrewer", "ggplot2", "ggrepel", "vsn"));'
+    
+    # Install Bioconductor 3.5 (The correct version for R 3.4)
+    R -e 'source("https://bioconductor.org/biocLite.R"); \
+        biocLite(c("DESeq2", "BiocParallel"), ask=FALSE)'
 
-    # 5. Install R Packages
-    # We use a script to ensure Bioconductor 3.5 (compatible with R 3.4) is used
-    R --slave -e 'source("https://bioconductor.org/biocLite.R"); \
-        biocLite(c("vsn", "DESeq2", "BiocParallel")); \
-        install.packages(c("pheatmap", "RColorBrewer", "ggplot2", "ggrepel"), repos="http://cran.rstudio.com/")'
+    # 4. Install SQuIRE
+    git clone https://github.com/Yanshu-Li/SQuIRE.git
+    cd SQuIRE && python setup.py install
 
 %environment
     export LC_ALL=C
