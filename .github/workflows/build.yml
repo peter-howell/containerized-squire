@@ -1,16 +1,39 @@
-name: Build Singularity Image
-on: [push]
+name: Build SQuIRE Container
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Allows you to run it manually
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: eabarnard/setup-singularity@v1
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Apptainer
+        uses: e360/setup-apptainer@v3
         with:
-          singularity-version: 3.8.0
-      - name: Build Container
-        run: singularity build squire.sif squire.def
-      - name: Upload Artifact
+          apptainer-version: 1.3.0 # Stable version for building
+
+      - name: Build SIF Image
+        run: |
+          # This uses your squire.def file in the repo root
+          sudo apptainer build squire.sif squire.def
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SIF as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: squire-image
