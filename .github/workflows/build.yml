@@ -1,0 +1,17 @@
+name: Build Singularity Image
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: eabarnard/setup-singularity@v1
+        with:
+          singularity-version: 3.8.0
+      - name: Build Container
+        run: singularity build squire.sif squire.def
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: squire-image
+          path: squire.sif
